@@ -160,63 +160,72 @@
         updateUI();
     }
 
-    function punch(type) {
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('en-CA');
-        const timeStr = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
-        const info = calculateShiftForDate(now);
-        const isHol = document.getElementById('isHoliday').checked;
+   function punch(type) {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-CA');
+    const timeStr = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+    const info = calculateShiftForDate(now);
+    const isHol = document.getElementById('isHoliday').checked;
 
-        if (type === 'IN') {
-            let currentHour = now.getHours();
-            let shiftBase = document.getElementById('shiftType').value;
-            let detectedActual = (currentHour >= 5 && currentHour < 17) ? "DAY" : "NIGHT";
-            if (shiftBase === '8H') detectedActual = (currentHour >= 22 || currentHour < 6) ? "NIGHT" : (currentHour >= 14 ? "EVENING" : "MORNING");
-            
-            let actualExpected = (detectedActual === "DAY" || detectedActual === "MORNING") ? "06:00" : (detectedActual === "EVENING" ? "14:00" : (detectedActual === "NIGHT" ? (shiftBase === '8H' ? "22:00" : "18:00") : "08:30"));
+    if (type === 'IN') {
+        let currentHour = now.getHours();
+        let shiftBase = document.getElementById('shiftType').value;
+        let detectedActual = (currentHour >= 5 && currentHour < 17) ? "DAY" : "NIGHT";
+        if (shiftBase === '8H') detectedActual = (currentHour >= 22 || currentHour < 6) ? "NIGHT" : (currentHour >= 14 ? "EVENING" : "MORNING");
+        
+        let actualExpected = (detectedActual === "DAY" || detectedActual === "MORNING") ? "06:00" : (detectedActual === "EVENING" ? "14:00" : (detectedActual === "NIGHT" ? (shiftBase === '8H' ? "22:00" : "18:00") : "08:30"));
 
+        let lateMins = 0;
+        // මචං මෙන්න මෙතන තමයි logic එක වෙනස් කළේ
+        if (info.plan !== "OFF") { 
             const [inH, inM] = timeStr.split(':').map(Number);
             const [exH, exM] = actualExpected.split(':').map(Number);
             let diff = (inH * 60 + inM) - (exH * 60 + exM);
             if (detectedActual === "NIGHT" && diff < -600) diff += 1440;
-            let lateMins = (diff > 10) ? diff : 0;
-
-            logs.unshift({ 
-                date: dateStr, in: timeStr, out: null, 
-                shift: info.plan, actualShift: detectedActual, 
-                late: lateMins, isHoliday: isHol, 
-                isChanged: (info.plan !== "OFF" && info.plan !== detectedActual), 
-                isOffWork: (info.plan === "OFF"), 
-                month: dateStr.substring(0,7), hrs: 0, ot: 0 
-            });
-            currentStatus = 'IN';
-        } else {
-            let entry = logs.find(l => l.out === null);
-            if (entry) {
-                entry.out = timeStr;
-                let d1 = new Date(entry.date + " " + entry.in); 
-                let d2 = new Date(dateStr + " " + entry.out);
-                let dur = (d2 - d1) / 3600000; if (dur < 0) dur += 24;
-                entry.hrs = dur.toFixed(1); 
-                let calculatedOT = (entry.isHoliday || entry.isOffWork || entry.shift === "OFF") ? dur : 0;
-                if(calculatedOT === 0) {
-                    let shiftBase = document.getElementById('shiftType').value;
-                    let expOutH = (shiftBase === 'GEN') ? 17 : (entry.actualShift === "DAY" ? 18 : 6);
-                    if(shiftBase === '8H') expOutH = (entry.actualShift === "MORNING") ? 14 : (entry.actualShift === "EVENING" ? 22 : 6);
-                    let [outH, outM] = timeStr.split(':').map(Number);
-                    let extraMins = (outH * 60 + outM) - (expOutH * 60 + (shiftBase === 'GEN' ? 30 : 0));
-                    if ((entry.actualShift === "NIGHT" || shiftBase === '8H') && extraMins < -600) extraMins += 1440;
-                    if (extraMins >= 60) calculatedOT = Math.floor(extraMins / 30) * 0.5;
-                }
-                entry.ot = parseFloat(calculatedOT).toFixed(1);
-            }
-            currentStatus = 'OUT';
+            lateMins = (diff > 10) ? diff : 0;
         }
-        localStorage.setItem('workData_v38', JSON.stringify(logs));
-        localStorage.setItem('status_v38', currentStatus);
-        document.getElementById('isHoliday').checked = false;
-        updateUI();
+
+        logs.unshift({ 
+            date: dateStr, in: timeStr, out: null, 
+            shift: info.plan, actualShift: detectedActual, 
+            late: lateMins, isHoliday: isHol, 
+            isChanged: (info.plan !== "OFF" && info.plan !== detectedActual), 
+            isOffWork: (info.plan === "OFF"), 
+            month: dateStr.substring(0,7), hrs: 0, ot: 0 
+        });
+        currentStatus = 'IN';
+    } else {
+        // Punch Out logic remains the same (OT calculation)
+        let entry = logs.find(l => l.out === null);
+        if (entry) {
+            entry.out = timeStr;
+            let d1 = new Date(entry.date + " " + entry.in); 
+            let d2 = new Date(dateStr + " " + entry.out);
+            let dur = (d2 - d1) / 3600000; if (dur < 0) dur += 24;
+            entry.hrs = dur.toFixed(1); 
+            
+            // OFF Day හෝ Holiday නම් මුළු පැය ගණනම OT
+            let calculatedOT = (entry.isHoliday || entry.isOffWork || entry.shift === "OFF") ? dur : 0;
+            
+            if(calculatedOT === 0) {
+                let shiftBase = document.getElementById('shiftType').value;
+                let expOutH = (shiftBase === 'GEN') ? 17 : (entry.actualShift === "DAY" ? 18 : 6);
+                if(shiftBase === '8H') expOutH = (entry.actualShift === "MORNING") ? 14 : (entry.actualShift === "EVENING" ? 22 : 6);
+                let [outH, outM] = timeStr.split(':').map(Number);
+                let extraMins = (outH * 60 + outM) - (expOutH * 60 + (shiftBase === 'GEN' ? 30 : 0));
+                if ((entry.actualShift === "NIGHT" || shiftBase === '8H') && extraMins < -600) extraMins += 1440;
+                if (extraMins >= 60) calculatedOT = Math.floor(extraMins / 30) * 0.5;
+            }
+            entry.ot = parseFloat(calculatedOT).toFixed(1);
+        }
+        currentStatus = 'OUT';
     }
+    localStorage.setItem('workData_v38', JSON.stringify(logs));
+    localStorage.setItem('status_v38', currentStatus);
+    document.getElementById('isHoliday').checked = false;
+    updateUI();
+}
+
 
     function renderLogs() {
         const filter = document.getElementById('monthFilter').value;
