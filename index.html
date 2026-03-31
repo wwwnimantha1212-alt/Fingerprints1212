@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Work Log v40.2 - Nimantha Dilshan</title>
+    <title>Work Log v40.6 - Nimantha Dilshan</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -23,13 +23,14 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
         th, td { border: 1px solid #eee; padding: 6px 4px; text-align: center; }
         th { background: var(--primary); color: white; }
-        .tag-holi { background: var(--warning); font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
-        .tag-leave { background: #6c757d; color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
-        .tag-ot { background: var(--success); color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
-        .tag-change { background: #e83e8c; color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
+        .tag { font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
+        .tag-holi { background: var(--warning); color: black; }
+        .tag-leave { background: #6c757d; color: white; }
+        .tag-ot { background: var(--success); color: white; }
+        .tag-change { background: #e83e8c; color: white; }
         #home-page, #report-page, #late-page { display: none; min-height: 80vh; }
         .active { display: block !important; }
-        footer { text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px 0; border-top: 1px solid #ddd; width: 100%; }
+        footer { text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px 0; border-top: 1px solid #ddd; }
         .shift-info-panel { background: #e7f3ff; padding: 10px; border-radius: 8px; border-left: 5px solid var(--primary); margin: 10px 0; }
         .btn-clear { margin-top: 25px; color: #bbb; border: 1px solid #eee; background: none; font-size: 11px; padding: 10px; cursor: pointer; border-radius: 8px; }
     </style>
@@ -59,8 +60,8 @@
             </select>
         </div>
         <div class="shift-info-panel">
-            <div id="shift-detector" style="font-weight:bold; color:var(--primary); font-size:15px;">Detecting...</div>
-            <div id="expected-time" style="font-size:13px; color:#555; margin-top:3px;">Exp: --:--</div>
+            <div id="shift-detector" style="font-weight:bold; color:var(--primary); font-size:15px;">Plan: Calculating...</div>
+            <div id="expected-time" style="font-size:13px; color:#555; margin-top:3px;">Exp. In: --:--</div>
         </div>
         <div class="holiday-box">
             <input type="checkbox" id="isHoliday" style="width:20px; height:20px;">
@@ -80,12 +81,8 @@
     <div class="card">
         <button class="btn-back" onclick="showPage('home-page')">← Back</button>
         <h3 style="text-align:center; margin:10px 0;">Monthly Late Balance</h3>
-        <div id="lateStats" class="late-status">Balance: 60 min</div>
+        <div id="lateStats" style="text-align:center; font-weight:bold; font-size:20px; margin:10px 0;">Balance: 60 min</div>
         <div style="height: 200px;"><canvas id="lateChart"></canvas></div>
-    </div>
-    <div class="card">
-        <h4>Late History</h4>
-        <div style="overflow-x:auto;"><table id="lateTable"><thead><tr><th>Date</th><th>Shift</th><th>IN</th><th>Late (m)</th></tr></thead><tbody></tbody></table></div>
     </div>
 </div>
 
@@ -129,9 +126,7 @@
         } else if (type === '8H') {
             let pos = ((diffDays - startDay) % 7 + 7) % 7;
             if (pos < 2) plan = "NIGHT"; else if (pos < 4) plan = "EVENING"; else if (pos < 6) plan = "MORNING";
-        } else {
-            plan = "GENERAL"; expected = "08:30";
-        }
+        } else { plan = "GENERAL"; expected = "08:30"; }
 
         if (type !== 'GEN') {
             if (plan === "DAY" || plan === "MORNING") expected = "06:00";
@@ -141,12 +136,10 @@
         return { plan, expected };
     }
 
-    function calculateCurrentShift() { return calculateShiftForDate(new Date()); }
-
     function updateLiveStatus() {
-        const info = calculateCurrentShift();
-        document.getElementById('shift-detector').innerText = `Current Plan: ${info.plan}`;
-        document.getElementById('expected-time').innerText = `Expected In: ${info.expected}`;
+        const info = calculateShiftForDate(new Date());
+        document.getElementById('shift-detector').innerText = `Plan: ${info.plan}`;
+        document.getElementById('expected-time').innerText = `Exp. In: ${info.expected}`;
         document.getElementById('cycle-setup').style.display = (document.getElementById('shiftType').value === 'GEN') ? 'none' : 'block';
     }
 
@@ -167,76 +160,52 @@
         updateUI();
     }
 
-    function showPage(p) {
-        document.querySelectorAll('body > div').forEach(div => div.classList.remove('active'));
-        document.getElementById(p).classList.add('active');
-        if(p === 'report-page') { initMonthFilter(); renderLogs(); }
-        if(p === 'late-page') renderLateTracker();
-        window.scrollTo(0,0);
-    }
-
-    function updateUI() {
-        document.getElementById('btnIn').disabled = (currentStatus === 'IN');
-        document.getElementById('btnOut').disabled = (currentStatus === 'OUT');
-        const st = document.getElementById('status-display');
-        st.innerText = currentStatus === 'IN' ? "WORKING" : "OFF DUTY";
-        st.style.color = currentStatus === 'IN' ? "var(--success)" : "var(--danger)";
-    }
-
     function punch(type) {
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA');
         const timeStr = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
-        const info = calculateCurrentShift();
+        const info = calculateShiftForDate(now);
         const isHol = document.getElementById('isHoliday').checked;
 
         if (type === 'IN') {
-            const [inH, inM] = timeStr.split(':').map(Number);
-            const [exH, exM] = info.expected.split(':').map(Number);
-            let lateMins = 0;
-            if (info.plan !== "OFF") {
-                let diff = (inH * 60 + inM) - (exH * 60 + exM);
-                if (info.plan === "NIGHT" && diff < -600) diff += 1440;
-                lateMins = (diff > 10) ? diff : 0;
-            }
-            
-            let isShiftChange = false;
-            let isOffDayWork = false;
             let currentHour = now.getHours();
             let shiftBase = document.getElementById('shiftType').value;
-            let detectedActual = "";
+            let detectedActual = (currentHour >= 5 && currentHour < 17) ? "DAY" : "NIGHT";
+            if (shiftBase === '8H') detectedActual = (currentHour >= 22 || currentHour < 6) ? "NIGHT" : (currentHour >= 14 ? "EVENING" : "MORNING");
             
-            if (shiftBase === '12A' || shiftBase === '12B') {
-                detectedActual = (currentHour >= 5 && currentHour < 17) ? "DAY" : "NIGHT";
-            } else if (shiftBase === '8H') {
-                detectedActual = (currentHour >= 22 || currentHour < 6) ? "NIGHT" : (currentHour >= 14 ? "EVENING" : "MORNING");
-            }
+            let actualExpected = (detectedActual === "DAY" || detectedActual === "MORNING") ? "06:00" : (detectedActual === "EVENING" ? "14:00" : (detectedActual === "NIGHT" ? (shiftBase === '8H' ? "22:00" : "18:00") : "08:30"));
 
-            if (info.plan === "OFF") isOffDayWork = true;
-            else if (detectedActual !== "" && info.plan !== detectedActual) isShiftChange = true;
+            const [inH, inM] = timeStr.split(':').map(Number);
+            const [exH, exM] = actualExpected.split(':').map(Number);
+            let diff = (inH * 60 + inM) - (exH * 60 + exM);
+            if (detectedActual === "NIGHT" && diff < -600) diff += 1440;
+            let lateMins = (diff > 10) ? diff : 0;
 
-            logs.unshift({ date: dateStr, in: timeStr, out: null, shift: info.plan, late: lateMins, isHoliday: isHol, isChanged: isShiftChange, isOffWork: isOffDayWork, month: dateStr.substring(0,7), hrs: 0, ot: 0 });
+            logs.unshift({ 
+                date: dateStr, in: timeStr, out: null, 
+                shift: info.plan, actualShift: detectedActual, 
+                late: lateMins, isHoliday: isHol, 
+                isChanged: (info.plan !== "OFF" && info.plan !== detectedActual), 
+                isOffWork: (info.plan === "OFF"), 
+                month: dateStr.substring(0,7), hrs: 0, ot: 0 
+            });
             currentStatus = 'IN';
         } else {
             let entry = logs.find(l => l.out === null);
             if (entry) {
                 entry.out = timeStr;
-                let d1 = new Date("2000-01-01 " + entry.in); let d2 = new Date("2000-01-01 " + entry.out);
+                let d1 = new Date(entry.date + " " + entry.in); 
+                let d2 = new Date(dateStr + " " + entry.out);
                 let dur = (d2 - d1) / 3600000; if (dur < 0) dur += 24;
                 entry.hrs = dur.toFixed(1); 
-                let shiftBase = document.getElementById('shiftType').value;
-                let calculatedOT = 0;
-                if (entry.isHoliday || entry.isOffWork || entry.shift === "OFF") {
-                    calculatedOT = dur; 
-                } else {
-                    let expOutH = (shiftBase === 'GEN') ? 17 : (entry.shift === "DAY" ? 18 : 6);
-                    let expOutM = (shiftBase === 'GEN') ? 30 : 0;
-                    if(shiftBase === '8H'){
-                        if(entry.shift === "MORNING") expOutH = 14; else if(entry.shift === "EVENING") expOutH = 22; else expOutH = 6;
-                    }
+                let calculatedOT = (entry.isHoliday || entry.isOffWork || entry.shift === "OFF") ? dur : 0;
+                if(calculatedOT === 0) {
+                    let shiftBase = document.getElementById('shiftType').value;
+                    let expOutH = (shiftBase === 'GEN') ? 17 : (entry.actualShift === "DAY" ? 18 : 6);
+                    if(shiftBase === '8H') expOutH = (entry.actualShift === "MORNING") ? 14 : (entry.actualShift === "EVENING" ? 22 : 6);
                     let [outH, outM] = timeStr.split(':').map(Number);
-                    let extraMins = (outH * 60 + outM) - (expOutH * 60 + expOutM);
-                    if ((entry.shift === "NIGHT" || shiftBase === '8H') && extraMins < -600) extraMins += 1440;
+                    let extraMins = (outH * 60 + outM) - (expOutH * 60 + (shiftBase === 'GEN' ? 30 : 0));
+                    if ((entry.actualShift === "NIGHT" || shiftBase === '8H') && extraMins < -600) extraMins += 1440;
                     if (extraMins >= 60) calculatedOT = Math.floor(extraMins / 30) * 0.5;
                 }
                 entry.ot = parseFloat(calculatedOT).toFixed(1);
@@ -255,8 +224,7 @@
         tbody.innerHTML = "";
         let [year, month] = filter.split('-').map(Number);
         let daysInMonth = new Date(year, month, 0).getDate();
-        let monthLogs = [];
-        let totalOT = 0, totalDays = 0, totalHols = 0, totalLeaves = 0;
+        let monthLogs = [], totalOT = 0, totalDays = 0, totalHols = 0, totalLeaves = 0;
         let l_dates = [], l_hrs = [];
 
         for(let d=1; d<=daysInMonth; d++) {
@@ -267,46 +235,25 @@
             if (dayEntries.length > 0) {
                 dayEntries.forEach(l => {
                     monthLogs.push(l);
-                    if(l.out) {
-                        totalOT += parseFloat(l.ot);
-                        totalDays++;
-                        if(l.isHoliday) totalHols++;
-                        l_dates.push(d); l_hrs.push(l.hrs);
-                    }
+                    if(l.out) { totalOT += parseFloat(l.ot); totalDays++; if(l.isHoliday) totalHols++; l_dates.push(d); l_hrs.push(l.hrs); }
                 });
-            } else {
-                if (shiftPlan !== "OFF") {
-                    let today = new Date().toLocaleDateString('en-CA');
-                    if(dStr < today) {
-                        monthLogs.push({ date: dStr, shift: "LEAVE", in: "--", out: "--", hrs: 0, ot: 0, late: 0, isLeave: true });
-                        totalLeaves++;
-                    }
-                }
+            } else if (shiftPlan !== "OFF" && dStr < new Date().toLocaleDateString('en-CA')) {
+                monthLogs.push({ date: dStr, shift: "LEAVE", in: "--", out: "--", hrs: 0, ot: 0, late: 0, isLeave: true });
+                totalLeaves++;
             }
         }
 
         monthLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(l => {
-            let tags = (l.isHoliday ? '<br><span class="tag-holi">HOLIDAY</span>' : '') + 
-                       (l.isLeave ? '<br><span class="tag-leave">LEAVE</span>' : '') +
-                       (l.isOffWork ? '<br><span class="tag-ot">OT DAY</span>' : '') +
-                       (l.isChanged && !l.isLeave ? '<br><span class="tag-change">S-CHANGE</span>' : '');
-            
-            tbody.innerHTML += `<tr>
-                <td>${l.date}${tags}</td>
-                <td style="color:${l.isLeave?'red':'black'}">${l.shift}</td>
-                <td>${l.in}-${l.out||'..'}</td>
-                <td>${l.hrs}</td>
-                <td>${l.ot}</td>
-                <td>${l.late}m</td>
-            </tr>`;
+            let t = (l.isHoliday ? '<span class="tag tag-holi">HOLIDAY</span> ' : '') + (l.isLeave ? '<span class="tag tag-leave">LEAVE</span> ' : '') + (l.isOffWork ? '<span class="tag tag-ot">OT DAY</span> ' : '') + (l.isChanged && !l.isLeave ? '<span class="tag tag-change">S-CHANGE</span> ' : '');
+            tbody.innerHTML += `<tr><td>${l.date}<br>${t}</td><td>${l.shift}</td><td>${l.in}-${l.out||'..'}</td><td>${l.hrs}</td><td>${l.ot}</td><td>${l.late}m</td></tr>`;
         });
-
         document.getElementById('totalDays').innerText = totalDays;
         document.getElementById('totalLeaves').innerText = totalLeaves;
         document.getElementById('totalHols').innerText = totalHols;
         document.getElementById('finalOT').innerText = totalOT.toFixed(1);
+
         if(charts.work) charts.work.destroy();
-        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hrs', data: l_hrs.reverse(), borderColor: '#007bff' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hours', data: l_hrs.reverse(), borderColor: '#007bff', fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
 
     function initMonthFilter() {
@@ -316,42 +263,50 @@
         document.getElementById('monthFilter').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
     }
 
-    function generatePDF() {
-        const { jsPDF } = window.jspdf; 
-        const doc = new jsPDF();
-        const month = document.getElementById('monthFilter').value;
-        const name = document.getElementById('empName').value || 'N/A';
-        doc.text(`Work Report: ${name} - ${month}`, 14, 15);
-        let tableData = [];
-        let [y, m] = month.split('-').map(Number);
-        let days = new Date(y, m, 0).getDate();
-        for(let d=1; d<=days; d++) {
-            let dStr = `${y}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-            let entries = logs.filter(l => l.date === dStr);
-            if(entries.length > 0) entries.forEach(e => {
-                let status = e.isHoliday ? "(H)" : (e.isOffWork ? "(OT)" : (e.isChanged ? "(C)" : ""));
-                tableData.push([e.date + status, e.shift, `${e.in}-${e.out||'..'}`, e.hrs, e.ot]);
-            });
-            else if (calculateShiftForDate(new Date(y, m-1, d)).plan !== "OFF") {
-                if(dStr < new Date().toLocaleDateString('en-CA')) tableData.push([dStr, "LEAVE", "--", "0", "0"]);
-            }
-        }
-        doc.autoTable({ head: [['Date', 'Shift', 'Time', 'Hrs', 'OT']], body: tableData, startY: 25 });
-        doc.save(`Report_${month}.pdf`);
-    }
-
     function renderLateTracker() {
-        const curMonth = new Date().toLocaleDateString('en-CA').substring(0,7);
-        const monthLogs = logs.filter(l => l.month === curMonth && l.late > 0);
-        const used = monthLogs.reduce((s, c) => s + c.late, 0);
+        const used = logs.filter(l => l.month === new Date().toLocaleDateString('en-CA').substring(0,7)).reduce((s, c) => s + c.late, 0);
         const bal = Math.max(0, 60 - used);
         document.getElementById('lateStats').innerText = `Balance: ${bal} min`;
         if(charts.late) charts.late.destroy();
         charts.late = new Chart(document.getElementById('lateChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Used', 'Left'], datasets: [{ data: [used, bal], backgroundColor: ['#dc3545', '#28a745'] }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
 
+    function generatePDF() {
+        const { jsPDF } = window.jspdf; const doc = new jsPDF();
+        const month = document.getElementById('monthFilter').value;
+        doc.text(`Work Report: ${document.getElementById('empName').value} - ${month}`, 14, 15);
+        let tableData = [];
+        let [y, m] = month.split('-').map(Number);
+        for(let d=1; d<=new Date(y, m, 0).getDate(); d++) {
+            let dStr = `${y}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+            let entries = logs.filter(l => l.date === dStr);
+            if(entries.length > 0) entries.forEach(e => tableData.push([e.date, e.shift, `${e.in}-${e.out||'..'}`, e.hrs, e.ot]));
+            else if (calculateShiftForDate(new Date(y, m-1, d)).plan !== "OFF" && dStr < new Date().toLocaleDateString('en-CA')) tableData.push([dStr, "LEAVE", "--", "0", "0"]);
+        }
+        doc.autoTable({ head: [['Date', 'Shift', 'Time', 'Hrs', 'OT']], body: tableData, startY: 25 });
+        doc.save(`Report_${month}.pdf`);
+    }
+
+    function updateUI() {
+        document.getElementById('btnIn').disabled = (currentStatus === 'IN');
+        document.getElementById('btnOut').disabled = (currentStatus === 'OUT');
+        const st = document.getElementById('status-display');
+        st.innerText = currentStatus === 'IN' ? "WORKING" : "OFF DUTY";
+        st.style.color = currentStatus === 'IN' ? "var(--success)" : "var(--danger)";
+    }
+
+    function showPage(p) {
+        document.querySelectorAll('body > div').forEach(div => div.classList.remove('active'));
+        document.getElementById(p).classList.add('active');
+        if(p === 'report-page') { initMonthFilter(); renderLogs(); }
+        if(p === 'late-page') renderLateTracker();
+        window.scrollTo(0,0);
+    }
+
     function clearLogs() { if(confirm("සියලුම දත්ත මකන්නද?")) { logs=[]; localStorage.removeItem('workData_v38'); location.reload(); } }
-    loadSettings();
+    
+    window.onload = loadSettings;
+    setInterval(updateLiveStatus, 60000); // Check plan every minute
 </script>
 </body>
 </html>
