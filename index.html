@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Work Log v39.0 - Nimantha Dilshan</title>
+    <title>Work Log v40.2 - Nimantha Dilshan</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <style>
-        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f0f2f5; }
+        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f0f2f5; --warning: #ffc107; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 15px; margin: 0; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 12px; }
         input, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
@@ -23,9 +23,10 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
         th, td { border: 1px solid #eee; padding: 6px 4px; text-align: center; }
         th { background: var(--primary); color: white; }
-        .tag-holi { background: #ffc107; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
+        .tag-holi { background: var(--warning); font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
+        .tag-leave { background: #6c757d; color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
+        .tag-ot { background: var(--success); color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
         .tag-change { background: #e83e8c; color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
-        .tag-ot { background: #28a745; color: white; font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
         #home-page, #report-page, #late-page { display: none; min-height: 80vh; }
         .active { display: block !important; }
         footer { text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px 0; border-top: 1px solid #ddd; width: 100%; }
@@ -94,9 +95,9 @@
         <div style="height: 180px;"><canvas id="workChart"></canvas></div>
         <select id="monthFilter" onchange="renderLogs()"></select>
         <div class="summary-grid">
-            <div class="summary-item">Days<br><b id="totalDays">0</b></div>
+            <div class="summary-item">Days Worked<br><b id="totalDays">0</b></div>
+            <div class="summary-item">Total Leaves<br><b id="totalLeaves">0</b></div>
             <div class="summary-item">Holidays<br><b id="totalHols">0</b></div>
-            <div class="summary-item">Worked<br><b id="totalWorked">0</b>h</div>
             <div class="summary-item">Total OT<br><b id="finalOT">0</b>h</div>
         </div>
         <button class="btn-nav" style="background: #17a2b8; margin-bottom:10px;" onclick="generatePDF()">Download PDF</button>
@@ -112,16 +113,15 @@
     let currentStatus = localStorage.getItem('status_v38') || 'OUT';
     let charts = { work: null, late: null };
 
-    function calculateCurrentShift() {
+    function calculateShiftForDate(targetDate) {
         const type = document.getElementById('shiftType').value;
         const startDay = parseInt(document.getElementById('cycleStartDay').value);
-        const now = new Date();
         const refDate = new Date(2024, 0, 1);
-        const diffDays = Math.floor((now - refDate) / 86400000);
+        const diffDays = Math.floor((targetDate - refDate) / 86400000);
         let plan = "OFF", expected = "06:00";
 
         if (type === '12A') {
-            let pos = (now.getDay() - startDay + 7) % 7;
+            let pos = (targetDate.getDay() - startDay + 7) % 7;
             if (pos < 2) plan = "DAY"; else if (pos < 4) plan = "NIGHT";
         } else if (type === '12B') {
             let pos = ((diffDays - startDay) % 6 + 6) % 6;
@@ -140,6 +140,8 @@
         }
         return { plan, expected };
     }
+
+    function calculateCurrentShift() { return calculateShiftForDate(new Date()); }
 
     function updateLiveStatus() {
         const info = calculateCurrentShift();
@@ -191,7 +193,6 @@
         if (type === 'IN') {
             const [inH, inM] = timeStr.split(':').map(Number);
             const [exH, exM] = info.expected.split(':').map(Number);
-            
             let lateMins = 0;
             if (info.plan !== "OFF") {
                 let diff = (inH * 60 + inM) - (exH * 60 + exM);
@@ -202,8 +203,8 @@
             let isShiftChange = false;
             let isOffDayWork = false;
             let currentHour = now.getHours();
-            let detectedActual = "";
             let shiftBase = document.getElementById('shiftType').value;
+            let detectedActual = "";
             
             if (shiftBase === '12A' || shiftBase === '12B') {
                 detectedActual = (currentHour >= 5 && currentHour < 17) ? "DAY" : "NIGHT";
@@ -211,18 +212,10 @@
                 detectedActual = (currentHour >= 22 || currentHour < 6) ? "NIGHT" : (currentHour >= 14 ? "EVENING" : "MORNING");
             }
 
-            if (info.plan === "OFF") {
-                isOffDayWork = true;
-            } else if (detectedActual !== "" && info.plan !== detectedActual) {
-                isShiftChange = true;
-            }
+            if (info.plan === "OFF") isOffDayWork = true;
+            else if (detectedActual !== "" && info.plan !== detectedActual) isShiftChange = true;
 
-            logs.unshift({ 
-                date: dateStr, in: timeStr, out: null, shift: info.plan, 
-                late: lateMins, isHoliday: isHol, isChanged: isShiftChange, 
-                isOffWork: isOffDayWork,
-                month: dateStr.substring(0,7), hrs: 0, ot: 0 
-            });
+            logs.unshift({ date: dateStr, in: timeStr, out: null, shift: info.plan, late: lateMins, isHoliday: isHol, isChanged: isShiftChange, isOffWork: isOffDayWork, month: dateStr.substring(0,7), hrs: 0, ot: 0 });
             currentStatus = 'IN';
         } else {
             let entry = logs.find(l => l.out === null);
@@ -231,34 +224,20 @@
                 let d1 = new Date("2000-01-01 " + entry.in); let d2 = new Date("2000-01-01 " + entry.out);
                 let dur = (d2 - d1) / 3600000; if (dur < 0) dur += 24;
                 entry.hrs = dur.toFixed(1); 
-
                 let shiftBase = document.getElementById('shiftType').value;
                 let calculatedOT = 0;
-
                 if (entry.isHoliday || entry.isOffWork || entry.shift === "OFF") {
                     calculatedOT = dur; 
                 } else {
-                    let expOutH = 0; let expOutM = 0;
-                    if (shiftBase === '12A' || shiftBase === '12B') {
-                        expOutH = (entry.shift === "DAY") ? 18 : 6;
-                    } else if (shiftBase === 'GEN') {
-                        expOutH = 17; expOutM = 30;
-                    } else if (shiftBase === '8H') {
-                        if (entry.shift === "MORNING") expOutH = 14;
-                        else if (entry.shift === "EVENING") expOutH = 22;
-                        else if (entry.shift === "NIGHT") expOutH = 6;
+                    let expOutH = (shiftBase === 'GEN') ? 17 : (entry.shift === "DAY" ? 18 : 6);
+                    let expOutM = (shiftBase === 'GEN') ? 30 : 0;
+                    if(shiftBase === '8H'){
+                        if(entry.shift === "MORNING") expOutH = 14; else if(entry.shift === "EVENING") expOutH = 22; else expOutH = 6;
                     }
-
                     let [outH, outM] = timeStr.split(':').map(Number);
                     let extraMins = (outH * 60 + outM) - (expOutH * 60 + expOutM);
-                    if ((entry.shift === "NIGHT" || shiftBase === '8H' || (shiftBase==='12A' && entry.shift==='NIGHT') || (shiftBase==='12B' && entry.shift==='NIGHT')) && extraMins < -600) extraMins += 1440;
-
-                    if (extraMins >= 60) {
-                        let halfHourSlots = Math.floor(extraMins / 30);
-                        calculatedOT = halfHourSlots * 0.5;
-                    } else {
-                        calculatedOT = 0;
-                    }
+                    if ((entry.shift === "NIGHT" || shiftBase === '8H') && extraMins < -600) extraMins += 1440;
+                    if (extraMins >= 60) calculatedOT = Math.floor(extraMins / 30) * 0.5;
                 }
                 entry.ot = parseFloat(calculatedOT).toFixed(1);
             }
@@ -274,32 +253,60 @@
         const filter = document.getElementById('monthFilter').value;
         const tbody = document.querySelector("#logTable tbody");
         tbody.innerHTML = "";
-        let fLogs = logs.filter(l => l.month === filter);
-        let tw = 0, totOt = 0, th = 0, days = 0, l_dates = [], l_hrs = [];
-        
-        fLogs.forEach(l => {
-            if(l.out) {
-                tw += parseFloat(l.hrs); totOt += parseFloat(l.ot);
-                if(l.isHoliday) th++; days++;
-                l_dates.push(l.date.split('-')[2]); l_hrs.push(l.hrs);
+        let [year, month] = filter.split('-').map(Number);
+        let daysInMonth = new Date(year, month, 0).getDate();
+        let monthLogs = [];
+        let totalOT = 0, totalDays = 0, totalHols = 0, totalLeaves = 0;
+        let l_dates = [], l_hrs = [];
+
+        for(let d=1; d<=daysInMonth; d++) {
+            let dStr = `${year}-${month.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+            let dayEntries = logs.filter(l => l.date === dStr);
+            let shiftPlan = calculateShiftForDate(new Date(year, month-1, d)).plan;
+
+            if (dayEntries.length > 0) {
+                dayEntries.forEach(l => {
+                    monthLogs.push(l);
+                    if(l.out) {
+                        totalOT += parseFloat(l.ot);
+                        totalDays++;
+                        if(l.isHoliday) totalHols++;
+                        l_dates.push(d); l_hrs.push(l.hrs);
+                    }
+                });
+            } else {
+                if (shiftPlan !== "OFF") {
+                    let today = new Date().toLocaleDateString('en-CA');
+                    if(dStr < today) {
+                        monthLogs.push({ date: dStr, shift: "LEAVE", in: "--", out: "--", hrs: 0, ot: 0, late: 0, isLeave: true });
+                        totalLeaves++;
+                    }
+                }
             }
-            let tags = (l.isHoliday ? '<br><span class="tag-holi">HOLI</span>' : '') + 
-                       (l.isOffWork ? '<br><span class="tag-ot">OT</span>' : (l.isChanged ? '<br><span class="tag-change">S-CHANGE</span>' : ''));
+        }
+
+        monthLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(l => {
+            let tags = (l.isHoliday ? '<br><span class="tag-holi">HOLIDAY</span>' : '') + 
+                       (l.isLeave ? '<br><span class="tag-leave">LEAVE</span>' : '') +
+                       (l.isOffWork ? '<br><span class="tag-ot">OT DAY</span>' : '') +
+                       (l.isChanged && !l.isLeave ? '<br><span class="tag-change">S-CHANGE</span>' : '');
             
             tbody.innerHTML += `<tr>
                 <td>${l.date}${tags}</td>
-                <td>${l.shift}</td>
+                <td style="color:${l.isLeave?'red':'black'}">${l.shift}</td>
                 <td>${l.in}-${l.out||'..'}</td>
                 <td>${l.hrs}</td>
                 <td>${l.ot}</td>
-                <td style="color:${l.late>0?'red':'black'}">${l.late || 0}m</td>
+                <td>${l.late}m</td>
             </tr>`;
         });
-        document.getElementById('totalDays').innerText = days; document.getElementById('totalHols').innerText = th;
-        document.getElementById('totalWorked').innerText = tw.toFixed(1); document.getElementById('finalOT').innerText = totOt.toFixed(1);
-        const ctx = document.getElementById('workChart').getContext('2d');
+
+        document.getElementById('totalDays').innerText = totalDays;
+        document.getElementById('totalLeaves').innerText = totalLeaves;
+        document.getElementById('totalHols').innerText = totalHols;
+        document.getElementById('finalOT').innerText = totalOT.toFixed(1);
         if(charts.work) charts.work.destroy();
-        charts.work = new Chart(ctx, { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hrs', data: l_hrs.reverse(), borderColor: '#007bff', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false } });
+        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hrs', data: l_hrs.reverse(), borderColor: '#007bff' }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
 
     function initMonthFilter() {
@@ -314,53 +321,36 @@
         const doc = new jsPDF();
         const month = document.getElementById('monthFilter').value;
         const name = document.getElementById('empName').value || 'N/A';
-        const empNo = document.getElementById('empNo').value || 'N/A';
-
-        doc.setFontSize(16);
-        doc.text("Work Attendance Report", 14, 15);
-        doc.setFontSize(11);
-        doc.text(`Employee Name: ${name}`, 14, 23);
-        doc.text(`Employee No: ${empNo}`, 14, 29);
-        doc.text(`Report Period: ${month}`, 14, 35);
-        
-        const data = logs.filter(l => l.month === month).map(l => [
-            l.date + (l.isHoliday?' (H)':'') + (l.isOffWork?' (OT)':'') + (!l.isOffWork && l.isChanged?' (C)':''), 
-            l.shift, `${l.in}-${l.out||'..'}`, l.hrs, l.ot, l.late + 'm'
-        ]);
-        
-        doc.autoTable({ 
-            head: [['Date', 'Shift', 'Time', 'Hrs', 'OT', 'Late']], 
-            body: data, 
-            startY: 40,
-            theme: 'grid',
-            headStyles: { fillColor: [0, 123, 255] }
-        });
-
-        const pageCount = doc.internal.getNumberOfPages();
-        for(let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(10);
-            doc.setTextColor(150);
-            doc.text("Developed by Nimantha Dilshan 2468", 14, doc.internal.pageSize.height - 10);
+        doc.text(`Work Report: ${name} - ${month}`, 14, 15);
+        let tableData = [];
+        let [y, m] = month.split('-').map(Number);
+        let days = new Date(y, m, 0).getDate();
+        for(let d=1; d<=days; d++) {
+            let dStr = `${y}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+            let entries = logs.filter(l => l.date === dStr);
+            if(entries.length > 0) entries.forEach(e => {
+                let status = e.isHoliday ? "(H)" : (e.isOffWork ? "(OT)" : (e.isChanged ? "(C)" : ""));
+                tableData.push([e.date + status, e.shift, `${e.in}-${e.out||'..'}`, e.hrs, e.ot]);
+            });
+            else if (calculateShiftForDate(new Date(y, m-1, d)).plan !== "OFF") {
+                if(dStr < new Date().toLocaleDateString('en-CA')) tableData.push([dStr, "LEAVE", "--", "0", "0"]);
+            }
         }
-        doc.save(`Report_${name}_${month}.pdf`);
+        doc.autoTable({ head: [['Date', 'Shift', 'Time', 'Hrs', 'OT']], body: tableData, startY: 25 });
+        doc.save(`Report_${month}.pdf`);
     }
 
     function renderLateTracker() {
         const curMonth = new Date().toLocaleDateString('en-CA').substring(0,7);
         const monthLogs = logs.filter(l => l.month === curMonth && l.late > 0);
         const used = monthLogs.reduce((s, c) => s + c.late, 0);
-        const bal = 60 - used;
+        const bal = Math.max(0, 60 - used);
         document.getElementById('lateStats').innerText = `Balance: ${bal} min`;
-        document.getElementById('lateStats').style.color = bal < 0 ? 'var(--danger)' : 'var(--success)';
-        document.querySelector("#lateTable tbody").innerHTML = monthLogs.map(l => `<tr><td>${l.date}</td><td>${l.shift}</td><td>${l.in}</td><td>${l.late}</td></tr>`).join('');
-        const ctx = document.getElementById('lateChart').getContext('2d');
         if(charts.late) charts.late.destroy();
-        charts.late = new Chart(ctx, { type: 'doughnut', data: { labels: ['Used', 'Left'], datasets: [{ data: [used, Math.max(0, bal)], backgroundColor: ['#dc3545', '#28a745'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+        charts.late = new Chart(document.getElementById('lateChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Used', 'Left'], datasets: [{ data: [used, bal], backgroundColor: ['#dc3545', '#28a745'] }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
 
     function clearLogs() { if(confirm("සියලුම දත්ත මකන්නද?")) { logs=[]; localStorage.removeItem('workData_v38'); location.reload(); } }
-
     loadSettings();
 </script>
 </body>
