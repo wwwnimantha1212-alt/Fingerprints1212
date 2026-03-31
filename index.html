@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Work Log v41.2 - Nimantha Dilshan</title>
+    <title>Work Log v41.4 - Nimantha Dilshan</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -16,25 +16,15 @@
         .btn-out { background: var(--danger); color: white; border: none; font-weight: bold; height: 60px; font-size: 18px; cursor:pointer; }
         .btn-nav { background: var(--primary); color: white; border: none; font-weight: bold; padding: 15px; cursor:pointer; }
         .btn-back { background: #6c757d; color: white; border: none; font-weight: bold; width: auto; padding: 8px 15px; cursor:pointer; }
-        
-        .table-scroll-area {
-            max-height: 400px; 
-            overflow-y: auto;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            margin-top: 10px;
-            background: #fff;
-        }
+        .table-scroll-area { max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; margin-top: 10px; background: #fff; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
         th, td { border: 1px solid #eee; padding: 10px 4px; text-align: center; }
         th { background: var(--primary); color: white; position: sticky; top: 0; z-index: 10; }
-        
         .tag { font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: bold; display: inline-block; margin-top: 2px; }
         .tag-holi { background: var(--warning); color: black; }
         .tag-leave { background: #6c757d; color: white; }
         .tag-ot { background: var(--success); color: white; }
-        .tag-change { background: #e83e8c; color: white; }
-        
+        .tag-off { background: #e83e8c; color: white; }
         #home-page, #report-page, #late-page { display: none; }
         .active { display: block !important; }
         footer { text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px 0; border-top: 1px solid #ddd; }
@@ -57,12 +47,12 @@
     <div class="card">
         <h3 style="margin:0 0 10px 0;">Shift Configuration</h3>
         <select id="shiftType" onchange="saveSettings()">
-            <option value="12A">12 Hours A (Fixed Weekly)</option>
-            <option value="12B">12 Hours B (Rotary 6-Day)</option>
-            <option value="8H">8 Hours (NEMO Rotary)</option>
-            <option value="GEN">General (8.30 AM - 5.30 PM)</option>
+            <option value="GEN">General (M-F 5.30, Sat 1.30)</option>
+            <option value="12A">12 Hours A (Fixed)</option>
+            <option value="12B">12 Hours B (Rotary)</option>
+            <option value="8H">8 Hours (NEMO)</option>
         </select>
-        <div id="cycle-setup" style="margin-top:10px;">
+        <div id="cycle-setup" style="margin-top:10px; display:none;">
             <label style="font-size:11px; font-weight:bold;">Cycle Start Day:</label>
             <select id="cycleStartDay" onchange="saveSettings()">
                 <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option>
@@ -81,7 +71,7 @@
         <button id="btnIn" class="btn-in" onclick="punch('IN')">PUNCH IN</button>
         <button id="btnOut" class="btn-out" onclick="punch('OUT')">PUNCH OUT</button>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button class="btn-nav" onclick="showPage('late-page')">Late Tracker ⏱️</button>
+            <button class="btn-nav" onclick="showPage('late-page')">Late ⏱️</button>
             <button class="btn-nav" onclick="showPage('report-page')">Reports 📊</button>
         </div>
     </div>
@@ -90,14 +80,11 @@
 <div id="late-page">
     <div class="card">
         <button class="btn-back" onclick="showPage('home-page')">← Back</button>
-        <h3 style="text-align:center; margin:10px 0;">Late Balance Tracker</h3>
+        <h3 style="text-align:center; margin:10px 0;">Late Balance</h3>
         <select id="lateMonthFilter" onchange="renderLateTracker()" style="margin-bottom:10px;"></select>
         <div id="lateStats" style="text-align:center; font-weight:bold; font-size:24px; margin:10px 0;">Balance: 60 min</div>
         <div style="height: 200px;"><canvas id="lateChart"></canvas></div>
-        <div id="lateDetails" style="margin-top:15px;">
-            <h4 style="font-size:14px; border-bottom:1px solid #ddd; padding-bottom:5px;">Late History</h4>
-            <div id="lateList" style="max-height:180px; overflow-y:auto;"></div>
-        </div>
+        <div id="lateList" style="max-height:180px; overflow-y:auto; margin-top:10px;"></div>
     </div>
 </div>
 
@@ -108,29 +95,20 @@
         <select id="monthFilter" onchange="renderLogs()"></select>
         <div class="summary-grid">
             <div class="summary-item">Days Worked<br><b id="totalDays">0</b></div>
-            <div class="summary-item">Total Leaves<br><b id="totalLeaves">0</b></div>
+            <div class="summary-item">Leaves<br><b id="totalLeaves">0</b></div>
             <div class="summary-item">Holidays<br><b id="totalHols">0</b></div>
             <div class="summary-item">Total OT<br><b id="finalOT">0</b>h</div>
         </div>
-        <button class="btn-nav" style="background: #17a2b8; margin-bottom:10px;" onclick="generatePDF()">Download PDF</button>
-        
+        <button class="btn-nav" style="background: #17a2b8; margin-bottom:10px;" onclick="generatePDF()">Download PDF Report</button>
         <div class="table-scroll-area">
             <table id="logTable">
-                <thead>
-                    <tr><th>Date</th><th>Shift</th><th>Time</th><th>Hrs</th><th>OT</th><th>Late</th></tr>
-                </thead>
+                <thead><tr><th>Date</th><th>Shift</th><th>Time</th><th>Hrs</th><th>OT</th><th>Late</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
-
         <div style="margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc; text-align:center;">
-            <button onclick="clearMonthData()" style="background:#fff; border:1px solid var(--danger); color:var(--danger); font-size:12px; margin-bottom:8px; width:auto; padding:8px 20px;">
-                🗑️ Clear Selected Month Data
-            </button>
-            <br>
-            <button onclick="clearAllData()" style="background:none; border:none; color:#bbb; font-size:10px; cursor:pointer;">
-                Reset Entire System (Clear All)
-            </button>
+            <button onclick="clearMonthData()" style="background:#fff; border:1px solid var(--danger); color:var(--danger); font-size:12px; margin-bottom:8px; width:auto; padding:8px 20px;">🗑️ Clear Selected Month</button><br>
+            <button onclick="clearAllData()" style="background:none; border:none; color:#bbb; font-size:10px; cursor:pointer;">Reset Entire System</button>
         </div>
     </div>
 </div>
@@ -145,27 +123,30 @@
     function calculateShiftForDate(targetDate) {
         const type = document.getElementById('shiftType').value;
         const startDay = parseInt(document.getElementById('cycleStartDay').value);
+        const dayOfWeek = targetDate.getDay(); 
         const refDate = new Date(2024, 0, 1);
         const diffDays = Math.floor((targetDate - refDate) / 86400000);
-        let plan = "OFF", expected = "06:00";
+        let plan = "OFF", expected = "08:30", expOut = "17:30";
 
-        if (type === '12A') {
-            let pos = (targetDate.getDay() - startDay + 7) % 7;
-            if (pos < 2) plan = "DAY"; else if (pos < 4) plan = "NIGHT";
+        if (type === 'GEN') {
+            if (dayOfWeek === 0) { plan = "OFF"; }
+            else if (dayOfWeek === 6) { plan = "GENERAL"; expected = "08:30"; expOut = "13:30"; }
+            else { plan = "GENERAL"; expected = "08:30"; expOut = "17:30"; }
+        } else if (type === '12A') {
+            let pos = (dayOfWeek - startDay + 7) % 7;
+            if (pos < 2) { plan = "DAY"; expected = "06:00"; expOut = "18:00"; }
+            else if (pos < 4) { plan = "NIGHT"; expected = "18:00"; expOut = "06:00"; }
         } else if (type === '12B') {
             let pos = ((diffDays - startDay) % 6 + 6) % 6;
-            if (pos < 2) plan = "DAY"; else if (pos < 4) plan = "NIGHT";
+            if (pos < 2) { plan = "DAY"; expected = "06:00"; expOut = "18:00"; }
+            else if (pos < 4) { plan = "NIGHT"; expected = "18:00"; expOut = "06:00"; }
         } else if (type === '8H') {
             let pos = ((diffDays - startDay) % 7 + 7) % 7;
-            if (pos < 2) plan = "NIGHT"; else if (pos < 4) plan = "EVENING"; else if (pos < 6) plan = "MORNING";
-        } else { plan = "GENERAL"; expected = "08:30"; }
-
-        if (type !== 'GEN') {
-            if (plan === "DAY" || plan === "MORNING") expected = "06:00";
-            else if (plan === "NIGHT") expected = "18:00";
-            else if (plan === "EVENING") expected = "14:00";
+            if (pos < 2) { plan = "NIGHT"; expected = "22:00"; expOut = "06:00"; }
+            else if (pos < 4) { plan = "EVENING"; expected = "14:00"; expOut = "22:00"; }
+            else if (pos < 6) { plan = "MORNING"; expected = "06:00"; expOut = "14:00"; }
         }
-        return { plan, expected };
+        return { plan, expected, expOut };
     }
 
     function punch(type) {
@@ -176,29 +157,17 @@
         const isHol = document.getElementById('isHoliday').checked;
 
         if (type === 'IN') {
-            let currentHour = now.getHours();
-            let shiftBase = document.getElementById('shiftType').value;
-            let detectedActual = (currentHour >= 5 && currentHour < 17) ? "DAY" : "NIGHT";
-            if (shiftBase === '8H') detectedActual = (currentHour >= 22 || currentHour < 6) ? "NIGHT" : (currentHour >= 14 ? "EVENING" : "MORNING");
-            
-            let actualExpected = (detectedActual === "DAY" || detectedActual === "MORNING") ? "06:00" : (detectedActual === "EVENING" ? "14:00" : (detectedActual === "NIGHT" ? (shiftBase === '8H' ? "22:00" : "18:00") : "08:30"));
-
             let lateMins = 0;
             if (info.plan !== "OFF") {
                 const [inH, inM] = timeStr.split(':').map(Number);
-                const [exH, exM] = actualExpected.split(':').map(Number);
+                const [exH, exM] = info.expected.split(':').map(Number);
                 let diff = (inH * 60 + inM) - (exH * 60 + exM);
-                if (detectedActual === "NIGHT" && diff < -600) diff += 1440;
                 lateMins = (diff > 10) ? diff : 0;
             }
-
             logs.unshift({ 
                 date: dateStr, in: timeStr, out: null, 
-                shift: info.plan, actualShift: detectedActual, 
-                late: lateMins, isHoliday: isHol, 
-                isChanged: (info.plan !== "OFF" && info.plan !== detectedActual), 
-                isOffWork: (info.plan === "OFF"), 
-                month: dateStr.substring(0,7), hrs: 0, ot: 0 
+                shift: info.plan, late: lateMins, isHoliday: isHol, 
+                isOffWork: (info.plan === "OFF"), month: dateStr.substring(0,7), hrs: 0, ot: 0, expOut: info.expOut 
             });
             currentStatus = 'IN';
         } else {
@@ -210,14 +179,14 @@
                 let dur = (d2 - d1) / 3600000; if (dur < 0) dur += 24;
                 entry.hrs = dur.toFixed(1); 
                 
-                let calculatedOT = (entry.isHoliday || entry.isOffWork || entry.shift === "OFF") ? dur : 0;
-                if(calculatedOT === 0) {
-                    let shiftBase = document.getElementById('shiftType').value;
-                    let expOutH = (shiftBase === 'GEN') ? 17 : (entry.actualShift === "DAY" ? 18 : 6);
-                    if(shiftBase === '8H') expOutH = (entry.actualShift === "MORNING") ? 14 : (entry.actualShift === "EVENING" ? 22 : 6);
-                    let [outH, outM] = timeStr.split(':').map(Number);
-                    let extraMins = (outH * 60 + outM) - (expOutH * 60 + (shiftBase === 'GEN' ? 30 : 0));
-                    if ((entry.actualShift === "NIGHT" || shiftBase === '8H') && extraMins < -600) extraMins += 1440;
+                let calculatedOT = 0;
+                if (entry.isHoliday || entry.isOffWork) {
+                    calculatedOT = dur;
+                } else {
+                    const [outH, outM] = timeStr.split(':').map(Number);
+                    const [exOutH, exOutM] = entry.expOut.split(':').map(Number);
+                    let extraMins = (outH * 60 + outM) - (exOutH * 60);
+                    if (entry.expOut === "06:00" && extraMins < -600) extraMins += 1440;
                     if (extraMins >= 60) calculatedOT = Math.floor(extraMins / 30) * 0.5;
                 }
                 entry.ot = parseFloat(calculatedOT).toFixed(1);
@@ -230,135 +199,79 @@
         updateUI();
     }
 
-    function renderLateTracker() {
-        const filter = document.getElementById('lateMonthFilter').value;
-        const monthLogs = logs.filter(l => l.month === filter && !l.isOffWork && l.late > 0);
-        const totalLate = monthLogs.reduce((s, c) => s + c.late, 0);
-        const balance = Math.max(0, 60 - totalLate);
-        
-        const statsEl = document.getElementById('lateStats');
-        statsEl.innerText = `Balance: ${balance} min`;
-        statsEl.style.color = (balance <= 10) ? "var(--danger)" : "var(--success)";
-
-        const listEl = document.getElementById('lateList');
-        listEl.innerHTML = monthLogs.length ? "" : "<p style='color:#999; text-align:center;'>No late records.</p>";
-        monthLogs.forEach(l => {
-            listEl.innerHTML += `<div class="late-item"><span>📅 ${l.date}</span><span style="color:red; font-weight:bold;">${l.late}m</span></div>`;
-        });
-
-        if(charts.late) charts.late.destroy();
-        charts.late = new Chart(document.getElementById('lateChart').getContext('2d'), {
-            type: 'doughnut',
-            data: { labels: ['Used', 'Remaining'], datasets: [{ data: [totalLate, balance], backgroundColor: ['#dc3545', '#28a745'] }] },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-    }
-
-    function generatePDF() {
-        const { jsPDF } = window.jspdf; 
-        const doc = new jsPDF();
-        const month = document.getElementById('monthFilter').value;
-        const name = document.getElementById('empName').value || 'N/A';
-        const empNo = document.getElementById('empNo').value || 'N/A';
-
-        doc.setFontSize(16); doc.setTextColor(0, 123, 255);
-        doc.text("Work Attendance Report", 14, 15);
-        doc.setFontSize(11); doc.setTextColor(0, 0, 0);
-        doc.text(`Employee: ${name} (${empNo})`, 14, 25);
-        doc.text(`Period: ${month}`, 14, 32);
-        
-        let tableData = [];
-        let [y, m] = month.split('-').map(Number);
-        for(let d=1; d<=new Date(y, m, 0).getDate(); d++) {
-            let dStr = `${y}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-            let entries = logs.filter(l => l.date === dStr);
-            let shiftPlan = calculateShiftForDate(new Date(y, m-1, d)).plan;
-            if(entries.length > 0) {
-                entries.forEach(e => {
-                    let tag = e.isHoliday ? ' (H)' : (e.isOffWork ? ' (OT)' : (e.isChanged ? ' (C)' : ''));
-                    tableData.push([e.date + tag, e.shift, `${e.in}-${e.out||'..'}`, e.hrs, e.ot, e.late + 'm']);
-                });
-            } else if (shiftPlan !== "OFF" && dStr < new Date().toLocaleDateString('en-CA')) {
-                tableData.push([dStr + ' (L)', "LEAVE", "--", "0", "0", "0m"]);
-            }
-        }
-        doc.autoTable({ head: [['Date', 'Shift', 'Time', 'Hrs', 'OT', 'Late']], body: tableData, startY: 40, theme: 'grid' });
-        doc.save(`Report_${name}_${month}.pdf`);
-    }
-
     function renderLogs() {
         const filter = document.getElementById('monthFilter').value;
         const tbody = document.querySelector("#logTable tbody");
         tbody.innerHTML = "";
         let [year, month] = filter.split('-').map(Number);
         let daysInMonth = new Date(year, month, 0).getDate();
-        let monthLogs = [], totalOT = 0, totalDays = 0, totalHols = 0, totalLeaves = 0;
+        let totalOT = 0, totalDays = 0, totalHols = 0, totalLeaves = 0;
         let l_dates = [], l_hrs = [];
 
+        let currentMonthLogs = [];
         for(let d=1; d<=daysInMonth; d++) {
             let dStr = `${year}-${month.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
             let dayEntries = logs.filter(l => l.date === dStr);
             let shiftPlan = calculateShiftForDate(new Date(year, month-1, d)).plan;
-
             if (dayEntries.length > 0) {
                 dayEntries.forEach(l => {
-                    monthLogs.push(l);
+                    currentMonthLogs.push(l);
                     if(l.out) { totalOT += parseFloat(l.ot); totalDays++; if(l.isHoliday) totalHols++; l_dates.push(d); l_hrs.push(l.hrs); }
                 });
             } else if (shiftPlan !== "OFF" && dStr < new Date().toLocaleDateString('en-CA')) {
-                monthLogs.push({ date: dStr, shift: "LEAVE", in: "--", out: "--", hrs: 0, ot: 0, late: 0, isLeave: true });
+                currentMonthLogs.push({ date: dStr, shift: "LEAVE", in: "--", out: "--", hrs: 0, ot: 0, late: 0, isLeave: true });
                 totalLeaves++;
             }
         }
-        monthLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(l => {
-            let t = (l.isHoliday ? '<span class="tag tag-holi">HOLIDAY</span> ' : '') + (l.isLeave ? '<span class="tag tag-leave">LEAVE</span> ' : '') + (l.isOffWork ? '<span class="tag tag-ot">OT DAY</span> ' : '') + (l.isChanged && !l.isLeave ? '<span class="tag tag-change">S-CHANGE</span> ' : '');
+        currentMonthLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(l => {
+            let t = (l.isHoliday ? '<span class="tag tag-holi">HOLIDAY</span> ' : '') + (l.isLeave ? '<span class="tag tag-leave">LEAVE</span> ' : '') + (l.isOffWork ? '<span class="tag tag-off">OFF-DAY</span> ' : '');
             tbody.innerHTML += `<tr><td>${l.date}<br>${t}</td><td>${l.shift}</td><td>${l.in}-${l.out||'..'}</td><td>${l.hrs}</td><td>${l.ot}</td><td>${l.late}m</td></tr>`;
         });
         document.getElementById('totalDays').innerText = totalDays;
         document.getElementById('totalLeaves').innerText = totalLeaves;
         document.getElementById('totalHols').innerText = totalHols;
         document.getElementById('finalOT').innerText = totalOT.toFixed(1);
-
         if(charts.work) charts.work.destroy();
-        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hours', data: l_hrs.reverse(), borderColor: '#007bff', fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
+        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hrs', data: l_hrs.reverse(), borderColor: '#007bff' }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
 
-    // Machan methana thamai aluth functions thiyenne
-    function clearMonthData() {
-        const monthToClear = document.getElementById('monthFilter').value;
-        if(confirm(`${monthToClear} මාසයේ දත්ත පමණක් මකා දැමීමට සහතිකද?`)) {
-            logs = logs.filter(l => l.month !== monthToClear);
-            localStorage.setItem('workData_v38', JSON.stringify(logs));
-            renderLogs();
-            initMonthFilters();
-            alert(`${monthToClear} දත්ත සාර්ථකව මකා දැමුවා.`);
+    function renderLateTracker() {
+        const filter = document.getElementById('lateMonthFilter').value;
+        const monthLogs = logs.filter(l => l.month === filter && !l.isOffWork && l.late > 0);
+        const totalLate = monthLogs.reduce((s, c) => s + c.late, 0);
+        const balance = Math.max(0, 60 - totalLate);
+        document.getElementById('lateStats').innerText = `Balance: ${balance} min`;
+        document.getElementById('lateStats').style.color = (balance <= 10) ? "var(--danger)" : "var(--success)";
+        const listEl = document.getElementById('lateList');
+        listEl.innerHTML = monthLogs.length ? "" : "<p style='color:#999; text-align:center;'>No records.</p>";
+        monthLogs.forEach(l => { listEl.innerHTML += `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; font-size:13px;"><span>📅 ${l.date}</span><span style="color:red; font-weight:bold;">${l.late}m</span></div>`; });
+        if(charts.late) charts.late.destroy();
+        charts.late = new Chart(document.getElementById('lateChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Used', 'Remaining'], datasets: [{ data: [totalLate, balance], backgroundColor: ['#dc3545', '#28a745'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    }
+
+    function generatePDF() {
+        const { jsPDF } = window.jspdf; const doc = new jsPDF();
+        const m = document.getElementById('monthFilter').value;
+        const uName = document.getElementById('empName').value || 'N/A';
+        const uNo = document.getElementById('empNo').value || 'N/A';
+        let tableData = [];
+        logs.filter(l => l.month === m).forEach(e => { tableData.push([e.date, e.shift, `${e.in}-${e.out||'..'}`, e.hrs, e.ot, e.late+'m']); });
+        
+        doc.setFontSize(18); doc.setTextColor(0, 123, 255);
+        doc.text("Macktiles Attendance Report", 14, 20);
+        doc.setFontSize(11); doc.setTextColor(0, 0, 0);
+        doc.text(`Employee: ${uName} | No: ${uNo} | Month: ${m}`, 14, 30);
+        
+        doc.autoTable({ head: [['Date', 'Shift', 'Time', 'Hrs', 'OT', 'Late']], body: tableData, startY: 35, theme: 'grid' });
+        
+        // PDF Footer
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(10); doc.setTextColor(150);
+            doc.text(`Developed by Nimantha Dilshan 2468 - Page ${i} of ${pageCount}`, 14, doc.internal.pageSize.getHeight() - 10);
         }
-    }
-
-    function clearAllData() {
-        if(confirm("සම්පූර්ණ පද්ධතියේම දත්ත මකා දැමීමට සහතිකද? මේක ආපසු හැරවිය නොහැක!")) {
-            logs = [];
-            localStorage.removeItem('workData_v38');
-            location.reload();
-        }
-    }
-
-    function initMonthFilters() {
-        const months = [...new Set(logs.map(l => l.month))].sort().reverse();
-        const nowM = new Date().toLocaleDateString('en-CA').substring(0,7);
-        if(!months.includes(nowM)) months.unshift(nowM);
-        const options = months.map(m => `<option value="${m}">${m}</option>`).join('');
-        document.getElementById('monthFilter').innerHTML = options;
-        document.getElementById('lateMonthFilter').innerHTML = options;
-    }
-
-    function showPage(p) {
-        document.querySelectorAll('body > div').forEach(div => div.classList.remove('active'));
-        document.getElementById(p).classList.add('active');
-        initMonthFilters();
-        if(p === 'report-page') renderLogs();
-        if(p === 'late-page') renderLateTracker();
-        window.scrollTo(0,0);
+        doc.save(`Attendance_${uName}_${m}.pdf`);
     }
 
     function saveSettings() {
@@ -372,17 +285,15 @@
     function loadSettings() {
         document.getElementById('empName').value = localStorage.getItem('uName_v38') || '';
         document.getElementById('empNo').value = localStorage.getItem('uNo_v38') || '';
-        document.getElementById('shiftType').value = localStorage.getItem('shiftType_v38') || '12A';
+        document.getElementById('shiftType').value = localStorage.getItem('shiftType_v38') || 'GEN';
         document.getElementById('cycleStartDay').value = localStorage.getItem('startDay_v38') || '1';
-        updateLiveStatus();
-        updateUI();
-        initMonthFilters();
+        updateLiveStatus(); updateUI(); initMonthFilters();
     }
 
     function updateLiveStatus() {
         const info = calculateShiftForDate(new Date());
         document.getElementById('shift-detector').innerText = `Plan: ${info.plan}`;
-        document.getElementById('expected-time').innerText = `Exp. In: ${info.expected}`;
+        document.getElementById('expected-time').innerText = `Exp: ${info.expected} - ${info.expOut}`;
         document.getElementById('cycle-setup').style.display = (document.getElementById('shiftType').value === 'GEN') ? 'none' : 'block';
     }
 
@@ -392,6 +303,31 @@
         const st = document.getElementById('status-display');
         st.innerText = currentStatus === 'IN' ? "WORKING" : "OFF DUTY";
         st.style.color = currentStatus === 'IN' ? "var(--success)" : "var(--danger)";
+    }
+
+    function initMonthFilters() {
+        const months = [...new Set(logs.map(l => l.month))].sort().reverse();
+        const nowM = new Date().toLocaleDateString('en-CA').substring(0,7);
+        if(!months.includes(nowM)) months.unshift(nowM);
+        const options = months.map(m => `<option value="${m}">${m}</option>`).join('');
+        document.getElementById('monthFilter').innerHTML = options;
+        document.getElementById('lateMonthFilter').innerHTML = options;
+    }
+
+    function clearMonthData() {
+        const m = document.getElementById('monthFilter').value;
+        if(confirm(`${m} මකන්නද?`)) { logs = logs.filter(l => l.month !== m); localStorage.setItem('workData_v38', JSON.stringify(logs)); renderLogs(); initMonthFilters(); }
+    }
+
+    function clearAllData() { if(confirm("සම්පූර්ණ පද්ධතියම මකන්නද?")) { logs = []; localStorage.removeItem('workData_v38'); location.reload(); } }
+
+    function showPage(p) {
+        document.querySelectorAll('body > div').forEach(div => div.classList.remove('active'));
+        document.getElementById(p).classList.add('active');
+        initMonthFilters();
+        if(p === 'report-page') renderLogs();
+        if(p === 'late-page') renderLateTracker();
+        window.scrollTo(0,0);
     }
 
     window.onload = loadSettings;
