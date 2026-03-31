@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Work Log v41.4 - Nimantha Dilshan</title>
+    <title>Work Log v41.5 - Nimantha Dilshan</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <style>
-        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f0f2f5; --warning: #ffc107; }
+        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; --bg: #f0f2f5; --warning: #ffc107; --purple: #6f42c1; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 15px; margin: 0; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 12px; }
         input, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
@@ -25,6 +25,7 @@
         .tag-leave { background: #6c757d; color: white; }
         .tag-ot { background: var(--success); color: white; }
         .tag-off { background: #e83e8c; color: white; }
+        .tag-sc { background: var(--purple); color: white; }
         #home-page, #report-page, #late-page { display: none; }
         .active { display: block !important; }
         footer { text-align: center; color: #888; font-size: 12px; margin-top: 30px; padding: 20px 0; border-top: 1px solid #ddd; }
@@ -33,6 +34,7 @@
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
         .summary-item { background: #e9ecef; padding: 10px; border-radius: 8px; text-align: center; font-size: 13px; }
         .summary-item b { font-size: 16px; color: var(--primary); }
+        .chart-container { position: relative; margin: auto; height: 220px; width: 100%; }
     </style>
 </head>
 <body>
@@ -82,17 +84,22 @@
         <button class="btn-back" onclick="showPage('home-page')">← Back</button>
         <h3 style="text-align:center; margin:10px 0;">Late Balance</h3>
         <select id="lateMonthFilter" onchange="renderLateTracker()" style="margin-bottom:10px;"></select>
-        <div id="lateStats" style="text-align:center; font-weight:bold; font-size:24px; margin:10px 0;">Balance: 60 min</div>
-        <div style="height: 200px;"><canvas id="lateChart"></canvas></div>
-        <div id="lateList" style="max-height:180px; overflow-y:auto; margin-top:10px;"></div>
+        <div id="lateStats" style="text-align:center; font-weight:bold; font-size:24px; margin:5px 0;">Balance: 60 min</div>
+        <div class="chart-container">
+            <canvas id="lateChart"></canvas>
+        </div>
+        <div id="lateList" style="max-height:180px; overflow-y:auto; margin-top:15px;"></div>
     </div>
 </div>
 
 <div id="report-page">
     <div class="card">
         <button class="btn-back" onclick="showPage('home-page')">← Back</button>
-        <div style="height: 180px;"><canvas id="workChart"></canvas></div>
-        <select id="monthFilter" onchange="renderLogs()"></select>
+        <h3 style="text-align:center; margin:10px 0;">Monthly Performance</h3>
+        <div class="chart-container">
+            <canvas id="workChart"></canvas>
+        </div>
+        <select id="monthFilter" onchange="renderLogs()" style="margin-top:10px;"></select>
         <div class="summary-grid">
             <div class="summary-item">Days Worked<br><b id="totalDays">0</b></div>
             <div class="summary-item">Leaves<br><b id="totalLeaves">0</b></div>
@@ -157,17 +164,35 @@
         const isHol = document.getElementById('isHoliday').checked;
 
         if (type === 'IN') {
+            let actualShift = info.plan;
+            let expIn = info.expected;
+            let expOut = info.expOut;
+            let isSC = false;
+
+            const sType = document.getElementById('shiftType').value;
+            if(sType === '12A' || sType === '12B') {
+                const hour = now.getHours();
+                if(hour >= 16 || hour < 4) { 
+                    if(info.plan !== "NIGHT") { actualShift = "NIGHT"; expIn = "18:00"; expOut = "06:00"; isSC = true; }
+                } else { 
+                    if(info.plan !== "DAY") { actualShift = "DAY"; expIn = "06:00"; expOut = "18:00"; isSC = true; }
+                }
+            }
+
             let lateMins = 0;
-            if (info.plan !== "OFF") {
+            if (actualShift !== "OFF") {
                 const [inH, inM] = timeStr.split(':').map(Number);
-                const [exH, exM] = info.expected.split(':').map(Number);
+                const [exH, exM] = expIn.split(':').map(Number);
                 let diff = (inH * 60 + inM) - (exH * 60 + exM);
+                if(diff < -600) diff += 1440;
                 lateMins = (diff > 10) ? diff : 0;
             }
+            
             logs.unshift({ 
                 date: dateStr, in: timeStr, out: null, 
-                shift: info.plan, late: lateMins, isHoliday: isHol, 
-                isOffWork: (info.plan === "OFF"), month: dateStr.substring(0,7), hrs: 0, ot: 0, expOut: info.expOut 
+                shift: actualShift, late: lateMins, isHoliday: isHol, 
+                isSC: isSC,
+                isOffWork: (actualShift === "OFF"), month: dateStr.substring(0,7), hrs: 0, ot: 0, expOut: expOut 
             });
             currentStatus = 'IN';
         } else {
@@ -213,10 +238,17 @@
             let dStr = `${year}-${month.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
             let dayEntries = logs.filter(l => l.date === dStr);
             let shiftPlan = calculateShiftForDate(new Date(year, month-1, d)).plan;
+            
             if (dayEntries.length > 0) {
                 dayEntries.forEach(l => {
                     currentMonthLogs.push(l);
-                    if(l.out) { totalOT += parseFloat(l.ot); totalDays++; if(l.isHoliday) totalHols++; l_dates.push(d); l_hrs.push(l.hrs); }
+                    if(l.out) { 
+                        totalOT += parseFloat(l.ot); 
+                        totalDays++; 
+                        if(l.isHoliday) totalHols++; 
+                        l_dates.push(d); 
+                        l_hrs.push(parseFloat(l.hrs)); 
+                    }
                 });
             } else if (shiftPlan !== "OFF" && dStr < new Date().toLocaleDateString('en-CA')) {
                 currentMonthLogs.push({ date: dStr, shift: "LEAVE", in: "--", out: "--", hrs: 0, ot: 0, late: 0, isLeave: true });
@@ -224,15 +256,41 @@
             }
         }
         currentMonthLogs.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(l => {
-            let t = (l.isHoliday ? '<span class="tag tag-holi">HOLIDAY</span> ' : '') + (l.isLeave ? '<span class="tag tag-leave">LEAVE</span> ' : '') + (l.isOffWork ? '<span class="tag tag-off">OFF-DAY</span> ' : '');
-            tbody.innerHTML += `<tr><td>${l.date}<br>${t}</td><td>${l.shift}</td><td>${l.in}-${l.out||'..'}</td><td>${l.hrs}</td><td>${l.ot}</td><td>${l.late}m</td></tr>`;
+            let tags = (l.isHoliday ? '<span class="tag tag-holi">HOLIDAY</span> ' : '') + 
+                       (l.isSC ? '<span class="tag tag-sc">S.CHANGE</span> ' : '') +
+                       (l.isLeave ? '<span class="tag tag-leave">LEAVE</span> ' : '') + 
+                       (l.isOffWork ? '<span class="tag tag-off">OFF-DAY</span> ' : '');
+            tbody.innerHTML += `<tr><td>${l.date}<br>${tags}</td><td>${l.shift}</td><td>${l.in}-${l.out||'..'}</td><td>${l.hrs}</td><td>${l.ot}</td><td>${l.late}m</td></tr>`;
         });
         document.getElementById('totalDays').innerText = totalDays;
         document.getElementById('totalLeaves').innerText = totalLeaves;
         document.getElementById('totalHols').innerText = totalHols;
         document.getElementById('finalOT').innerText = totalOT.toFixed(1);
+
+        // --- Work Chart ---
         if(charts.work) charts.work.destroy();
-        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), { type: 'line', data: { labels: l_dates.reverse(), datasets: [{ label: 'Hrs', data: l_hrs.reverse(), borderColor: '#007bff' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        charts.work = new Chart(document.getElementById('workChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: l_dates,
+                datasets: [{
+                    label: 'Daily Work Hours',
+                    data: l_hrs,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, grid: { color: '#eee' } }, x: { grid: { display: false } } }
+            }
+        });
     }
 
     function renderLateTracker() {
@@ -240,13 +298,38 @@
         const monthLogs = logs.filter(l => l.month === filter && !l.isOffWork && l.late > 0);
         const totalLate = monthLogs.reduce((s, c) => s + c.late, 0);
         const balance = Math.max(0, 60 - totalLate);
+        
         document.getElementById('lateStats').innerText = `Balance: ${balance} min`;
         document.getElementById('lateStats').style.color = (balance <= 10) ? "var(--danger)" : "var(--success)";
+        
         const listEl = document.getElementById('lateList');
         listEl.innerHTML = monthLogs.length ? "" : "<p style='color:#999; text-align:center;'>No records.</p>";
-        monthLogs.forEach(l => { listEl.innerHTML += `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; font-size:13px;"><span>📅 ${l.date}</span><span style="color:red; font-weight:bold;">${l.late}m</span></div>`; });
+        monthLogs.forEach(l => { 
+            listEl.innerHTML += `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; font-size:13px;"><span>📅 ${l.date}</span><span style="color:red; font-weight:bold;">${l.late}m</span></div>`; 
+        });
+
+        // --- Late Chart ---
         if(charts.late) charts.late.destroy();
-        charts.late = new Chart(document.getElementById('lateChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Used', 'Remaining'], datasets: [{ data: [totalLate, balance], backgroundColor: ['#dc3545', '#28a745'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+        charts.late = new Chart(document.getElementById('lateChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Late Used', 'Remaining'],
+                datasets: [{
+                    data: [totalLate, balance],
+                    backgroundColor: ['#dc3545', '#28a745'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                },
+                cutout: '70%'
+            }
+        });
     }
 
     function generatePDF() {
@@ -264,7 +347,6 @@
         
         doc.autoTable({ head: [['Date', 'Shift', 'Time', 'Hrs', 'OT', 'Late']], body: tableData, startY: 35, theme: 'grid' });
         
-        // PDF Footer
         const pageCount = doc.internal.getNumberOfPages();
         for(let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
